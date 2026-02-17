@@ -1,130 +1,140 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Universal AI</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>NeuroPurple AI</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <style>
-html, body { height: 100%; }
-pre {
-  background:#111827;
-  color:#f9fafb;
+html,body{height:100%}
+
+.glow{
+  box-shadow:0 0 20px rgba(168,85,247,.6);
+}
+
+.fade-in{
+  animation:fade .25s ease-in-out;
+}
+
+@keyframes fade{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+pre{
+  background:#0f0f1a;
   padding:1rem;
-  border-radius:12px;
+  border-radius:14px;
   overflow:auto;
+  position:relative;
+}
+
+.copy-btn{
+  position:absolute;
+  top:8px;
+  right:8px;
+  background:#7c3aed;
+  color:white;
+  font-size:12px;
+  padding:4px 8px;
+  border-radius:6px;
+  cursor:pointer;
 }
 </style>
 </head>
 
-<body class="min-h-screen bg-gray-50 dark:bg-[#131314] text-gray-900 dark:text-gray-100">
+<body class="min-h-screen bg-gradient-to-br from-[#0d061a] via-[#140f25] to-[#1b1033] text-white">
 
-<div id="loading" class="fixed inset-0 flex items-center justify-center bg-white dark:bg-[#131314] z-50">
-  <div class="text-lg font-semibold animate-pulse">Loading App...</div>
+<div id="loading" class="fixed inset-0 flex items-center justify-center bg-[#0d061a] z-50">
+  <div class="text-lg animate-pulse text-purple-400">Loading AI...</div>
 </div>
 
 <div id="app" class="hidden flex min-h-screen">
 
 <!-- SIDEBAR -->
 <aside id="sidebar"
-class="fixed md:relative inset-y-0 left-0 w-72 bg-white dark:bg-[#1e1f20]
-border-r border-gray-200 dark:border-gray-800
-flex flex-col transform -translate-x-full md:translate-x-0 transition duration-300 z-40">
+class="fixed md:relative inset-y-0 left-0 w-72 bg-[#151022] border-r border-purple-900 flex flex-col transform -translate-x-full md:translate-x-0 transition duration-300 z-40">
 
-<div class="p-4 border-b dark:border-gray-800 flex justify-between items-center">
-<span class="font-semibold">Chats</span>
-<button id="newChat" class="text-blue-600 text-sm">New</button>
-</div>
+<div class="p-4 text-xl font-semibold text-purple-400">NeuroPurple</div>
+
+<button onclick="createChat()" class="m-4 p-2 bg-purple-700 rounded-lg glow">
++ New Chat
+</button>
 
 <div id="chatList" class="flex-1 overflow-y-auto"></div>
 
-<div class="p-4 border-t dark:border-gray-800 space-y-2 text-sm">
-<button id="toggleTheme" class="w-full text-left">🌙 Theme</button>
-</div>
 </aside>
 
 <!-- MAIN -->
 <main class="flex-1 flex flex-col min-h-screen">
 
-<div class="p-4 border-b dark:border-gray-800 bg-white dark:bg-[#1e1f20] flex items-center justify-between">
-<button id="mobileToggle" class="md:hidden text-xl">☰</button>
-<h1 id="chatTitle" class="font-semibold">New Chat</h1>
-<div></div>
+<!-- HEADER -->
+<div class="p-4 border-b border-purple-900 flex justify-between items-center">
+<button onclick="toggleSidebar()" class="md:hidden text-xl">☰</button>
+
+<select id="modelSelect"
+class="bg-[#1e1530] p-2 rounded-lg glow text-sm">
+<option>arcee-ai/trinity-large-preview:free</option>
+<option>deepseek/deepseek-r1:free</option>
+<option>mistralai/mixtral-8x7b</option>
+</select>
 </div>
 
-<div id="messages" class="flex-1 overflow-y-auto p-6 space-y-6 pb-40"></div>
+<!-- MESSAGES -->
+<div id="messages"
+class="flex-1 overflow-y-auto p-6 space-y-6 pb-40"></div>
 
-<div class="fixed bottom-0 left-0 md:left-72 right-0
-bg-white dark:bg-[#1e1f20]
-border-t dark:border-gray-800 p-4">
-
+<!-- INPUT -->
+<div class="fixed bottom-0 left-0 md:left-72 right-0 bg-[#140f25] border-t border-purple-900 p-4">
 <div class="flex gap-3 items-end">
 <textarea id="input"
-class="flex-1 resize-none rounded-2xl border
-dark:border-gray-700
-p-3 bg-gray-100 dark:bg-[#2a2b2d]
-focus:outline-none"
 rows="1"
+class="flex-1 resize-none bg-[#1e1530] p-3 rounded-xl focus:outline-none glow"
 placeholder="Ask anything..."></textarea>
-
-<button id="send"
-class="bg-blue-600 hover:bg-blue-700
-text-white px-5 py-2 rounded-2xl">Send</button>
+<button onclick="sendMessage()"
+class="bg-purple-700 px-6 py-2 rounded-xl glow">
+Send
+</button>
+</div>
 </div>
 
-</div>
 </main>
 </div>
 
 <script>
 
-/* ============================
-   HARD CODED CONFIG (VISIBLE)
-   ============================ */
+/* ===== CONFIG (VISIBLE) ===== */
 
-const API_KEY = "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";
-const MODEL = "arcee-ai/trinity-large-preview:free";
+const API_KEY = "PASTE_YOUR_KEY_HERE";
 
-/* ============================ */
+/* ===== STATE ===== */
 
 let chats = JSON.parse(localStorage.getItem("chats") || "{}");
 let currentId = localStorage.getItem("currentId") || null;
+let savedModel = localStorage.getItem("model") || "arcee-ai/trinity-large-preview:free";
 
-/* INIT */
+/* ===== INIT ===== */
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
 
-  if(localStorage.getItem("theme")==="dark"){
-    document.documentElement.classList.add("dark");
-  }
+  document.getElementById("modelSelect").value = savedModel;
 
-  renderChats();
   if(!currentId) createChat();
   else loadChat(currentId);
 
-  attachEvents();
+  renderChats();
 });
 
-/* EVENTS */
-
-function attachEvents(){
-  document.getElementById("send").onclick = sendMessage;
-  document.getElementById("newChat").onclick = createChat;
-  document.getElementById("toggleTheme").onclick = toggleTheme;
-  document.getElementById("mobileToggle").onclick = () =>
-    document.getElementById("sidebar").classList.toggle("-translate-x-full");
-}
-
-/* CHAT MANAGEMENT */
+/* ===== CHAT MANAGEMENT ===== */
 
 function createChat(){
-  const id = Date.now().toString();
-  chats[id] = { title:"New Chat", messages:[], system:"" };
+  const id=Date.now().toString();
+  chats[id]={title:"New Chat",messages:[]};
   currentId=id;
   saveState();
   renderChats();
@@ -132,73 +142,63 @@ function createChat(){
 }
 
 function loadChat(id){
-  if(!chats[id]) return;
   currentId=id;
-  document.getElementById("chatTitle").textContent = chats[id].title;
   renderMessages();
 }
 
-function deleteChat(id){
-  delete chats[id];
-  currentId=null;
-  saveState();
-  renderChats();
-  createChat();
-}
-
-function renameChat(id){
-  const name = prompt("Rename chat:");
-  if(!name) return;
-  chats[id].title = name;
-  saveState();
-  renderChats();
-}
-
 function renderChats(){
-  const list = document.getElementById("chatList");
+  const list=document.getElementById("chatList");
   list.innerHTML="";
   Object.keys(chats).forEach(id=>{
     const div=document.createElement("div");
-    div.className="p-3 hover:bg-gray-100 dark:hover:bg-[#2a2b2d] cursor-pointer group";
-    div.innerHTML=`
-      <div class="flex justify-between items-center">
-        <span>${chats[id].title}</span>
-        <div class="hidden group-hover:flex gap-2 text-xs">
-          <button onclick="renameChat('${id}')">✏</button>
-          <button onclick="deleteChat('${id}')">🗑</button>
-        </div>
-      </div>`;
+    div.className="p-3 hover:bg-purple-800 cursor-pointer";
+    div.innerText=chats[id].title;
     div.onclick=()=>loadChat(id);
     list.appendChild(div);
   });
 }
 
-/* RENDER MESSAGES */
-
 function renderMessages(){
   const container=document.getElementById("messages");
   container.innerHTML="";
-  const chat=chats[currentId];
-  if(!chat) return;
-
-  chat.messages.forEach(msg=>{
+  chats[currentId].messages.forEach(msg=>{
     const div=document.createElement("div");
-    div.className=msg.role==="user"?"text-right":"text-left";
-
+    div.className="fade-in";
     div.innerHTML=`
-    <div class="inline-block max-w-[85%] p-4 rounded-2xl
-    ${msg.role==="user"
-      ?"bg-blue-600 text-white"
-      :"bg-gray-200 dark:bg-[#2a2b2d]"}">
-    ${marked.parse(msg.content)}
-    </div>`;
+      <div class="max-w-[80%] p-4 rounded-xl ${
+        msg.role==="user"?"bg-purple-700 ml-auto":"bg-[#1e1530]"
+      }">
+      ${marked.parse(msg.content)}
+      </div>`;
     container.appendChild(div);
   });
-
+  addCopyButtons();
   container.scrollTop=container.scrollHeight;
 }
 
-/* SEND + STREAM */
+function saveState(){
+  localStorage.setItem("chats",JSON.stringify(chats));
+  localStorage.setItem("currentId",currentId);
+}
+
+/* ===== COPY BUTTON ===== */
+
+function addCopyButtons(){
+  document.querySelectorAll("pre").forEach(pre=>{
+    if(pre.querySelector(".copy-btn")) return;
+    const btn=document.createElement("button");
+    btn.innerText="Copy";
+    btn.className="copy-btn";
+    btn.onclick=()=>{
+      navigator.clipboard.writeText(pre.innerText);
+      btn.innerText="Copied!";
+      setTimeout(()=>btn.innerText="Copy",1000);
+    };
+    pre.appendChild(btn);
+  });
+}
+
+/* ===== SEND + STREAM ===== */
 
 async function sendMessage(){
   const input=document.getElementById("input");
@@ -216,61 +216,51 @@ async function sendMessage(){
   chat.messages.push(ai);
   renderMessages();
 
-  try{
-    const res=await fetch("https://openrouter.ai/api/v1/chat/completions",{
-      method:"POST",
-      headers:{
-        "Authorization":"Bearer "+API_KEY,
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({
-        model:MODEL,
-        messages:chat.messages,
-        stream:true
-      })
-    });
+  const model=document.getElementById("modelSelect").value;
+  localStorage.setItem("model",model);
 
-    const reader=res.body.getReader();
-    const decoder=new TextDecoder("utf-8");
+  const res=await fetch("https://openrouter.ai/api/v1/chat/completions",{
+    method:"POST",
+    headers:{
+      "Authorization":"Bearer "+API_KEY,
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+      model,
+      messages:chat.messages,
+      stream:true
+    })
+  });
 
-    while(true){
-      const {done,value}=await reader.read();
-      if(done) break;
-      const chunk=decoder.decode(value);
-      const lines=chunk.split("\n").filter(l=>l.startsWith("data: "));
-      for(const line of lines){
-        const json=line.replace("data: ","").trim();
-        if(json==="[DONE]") return;
-        const data=JSON.parse(json);
-        const token=data.choices?.[0]?.delta?.content;
-        if(token){
-          ai.content+=token;
-          renderMessages();
-        }
+  const reader=res.body.getReader();
+  const decoder=new TextDecoder();
+
+  while(true){
+    const {done,value}=await reader.read();
+    if(done) break;
+    const chunk=decoder.decode(value);
+    const lines=chunk.split("\n").filter(l=>l.startsWith("data: "));
+    for(const line of lines){
+      const json=line.replace("data: ","");
+      if(json==="[DONE]") return;
+      const data=JSON.parse(json);
+      const token=data.choices?.[0]?.delta?.content;
+      if(token){
+        ai.content+=token;
+        renderMessages();
       }
     }
-    saveState();
-  }catch(e){
-    ai.content="Error: "+e.message;
-    renderMessages();
   }
+
+  saveState();
 }
 
-/* THEME */
+/* ===== UI ===== */
 
-function toggleTheme(){
-  document.documentElement.classList.toggle("dark");
-  localStorage.setItem("theme",
-  document.documentElement.classList.contains("dark")?"dark":"light");
-}
-
-/* SAVE */
-
-function saveState(){
-  localStorage.setItem("chats",JSON.stringify(chats));
-  localStorage.setItem("currentId",currentId);
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("-translate-x-full");
 }
 
 </script>
 </body>
-    </html>
+  </html>
