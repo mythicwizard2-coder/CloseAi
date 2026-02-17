@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Universal AI Chat</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: { 
+                            750: '#2d2d3a', 
+                            850: '#1a1a23', 
+                            950: '#0f0f15' 
+                        },
+                        brand: {
+                            light: '#4b90ff',
+                            DEFAULT: '#3b82f6',
+                            dark: '#2563eb'
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        /* Markdown Styles */
+        .prose pre { margin: 0; padding: 0; background: transparent; }
+        .prose code { font-family: 'Courier New', Courier, monospace; }
+        .prose p { margin-bottom: 0.75em; }
+        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.75em; }
+        .prose ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.75em; }
+        
+        /* Mobile Safe Area */
+        .safe-h-screen { height: 100dvh; }
+        
+        /* Loader */
+        #loading {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #ffffff; z-index: 9999; display: flex;
+            justify-content: center; align-items: center; font-family: sans-serif;
+            transition: opacity 0.5s ease;
+        }
+        .dark #loading { background: #0f0f15; color: white; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 antialiased overflow-hidden">
+
+    <div id="loading">
+        <div class="flex flex-col items-center gap-4">
+            <div class="w-8 h-8 border-4 border-brand rounded-full border-t-transparent animate-spin"></div>
+            <p class="text-sm font-medium tracking-wide">Initializing App...</p>
+        </div>
+    </div>
+
+    <div class="flex safe-h-screen w-full">
+        
+        <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-20 hidden lg:hidden backdrop-blur-sm transition-opacity" onclick="app.toggleSidebar()"></div>
+
+        <aside id="sidebar" class="fixed lg:relative z-30 w-72 h-full bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="p-4">
+                <button onclick="app.createNewChat()" class="w-full flex items-center gap-3 px-4 py-3 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-750 rounded-xl transition-colors text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    New Chat
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-2 space-y-1" id="chat-history-list">
+                </div>
+
+            <div class="p-4 border-t border-gray-200 dark:border-gray-800">
+                <button onclick="app.toggleSettings()" class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Settings
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-full relative w-full">
+            <header class="h-14 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800 lg:hidden flex-shrink-0">
+                <button onclick="app.toggleSidebar()" class="p-2 -ml-2 text-gray-600 dark:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <span class="font-semibold text-sm">Universal AI</span>
+                <div class="w-6"></div> </header>
+
+            <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth">
+                <div id="welcome-message" class="flex flex-col items-center justify-center h-full text-center text-gray-400 space-y-4">
+                    <div class="p-4 bg-gray-100 dark:bg-gray-900 rounded-full">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <p class="text-lg font-medium text-gray-500 dark:text-gray-400">How can I help you today?</p>
+                </div>
+            </div>
+
+            <div class="p-4 bg-white dark:bg-gray-950 flex-shrink-0 w-full max-w-4xl mx-auto">
+                <div class="relative flex items-end gap-2 bg-gray-100 dark:bg-gray-850 p-2 rounded-3xl border border-transparent focus-within:border-gray-300 dark:focus-within:border-gray-700 transition-colors">
+                    <textarea id="user-input" rows="1" placeholder="Message..." class="w-full bg-transparent border-0 focus:ring-0 resize-none py-3 px-4 max-h-32 text-gray-900 dark:text-gray-100 placeholder-gray-500" oninput="app.autoResize(this)" onkeydown="app.handleEnter(event)"></textarea>
+                    
+                    <button id="send-btn" onclick="app.sendMessage()" class="p-2 mb-1 bg-brand text-white rounded-full hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                        <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                    </button>
+                </div>
+                <div class="text-center mt-2">
+                    <span class="text-xs text-gray-400 dark:text-gray-600" id="model-display">Model: deepseek-r1:free</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="settings-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transform transition-all scale-100">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+                <h3 class="text-lg font-bold">Settings</h3>
+                <button onclick="app.toggleSettings()" class="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">OpenRouter API Key</label>
+                    <input type="password" id="setting-api-key" placeholder="sk-or-..." class="w-full bg-gray-50 dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none">
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Model ID</label>
+                    <input type="text" id="setting-model" placeholder="deepseek/deepseek-r1:free" class="w-full bg-gray-50 dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Global System Prompt</label>
+                    <textarea id="setting-system-prompt" rows="3" class="w-full bg-gray-50 dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none resize-none"></textarea>
+                </div>
+
+                <div class="flex items-center justify-between pt-2">
+                    <span class="text-sm font-medium">Dark Mode</span>
+                    <button id="theme-toggle" onclick="app.toggleTheme()" class="w-12 h-6 rounded-full bg-gray-300 dark:bg-brand relative transition-colors">
+                        <div class="w-4 h-4 bg-white rounded-full absolute top-1 left-1 dark:left-7 transition-all shadow-sm"></div>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-gray-850 flex justify-end">
+                <button onclick="app.saveSettings()" class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DOM = {
+            loading: document.getElementById('loading'),
+            sidebar: document.getElementById('sidebar'),
+            backdrop: document.getElementById('sidebar-backdrop'),
+            messages: document.getElementById('messages-container'),
+            welcome: document.getElementById('welcome-message'),
+            input: document.getElementById('user-input'),
+            sendBtn: document.getElementById('send-btn'),
+            historyList: document.getElementById('chat-history-list'),
+            modelDisplay: document.getElementById('model-display'),
+            modals: {
+                settings: document.getElementById('settings-modal'),
+                apiKey: document.getElementById('setting-api-key'),
+                model: document.getElementById('setting-model'),
+                system: document.getElementById('setting-system-prompt')
+            }
+        };
+
+        const STATE = {
+            chats: [],
+            currentChatId: null,
+            settings: {
+                apiKey: '',
+                model: 'deepseek/deepseek-r1:free',
+                systemPrompt: 'You are a helpful AI assistant.',
+                theme: 'dark'
+            },
+            isGenerating: false
+        };
+
+        const UTILS = {
+            id: () => Date.now().toString(36) + Math.random().toString(36).substr(2),
+            escapeHtml: (unsafe) => {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+        };
+
+        // --- CORE APP LOGIC ---
+
+        const app = {
+            init: () => {
+                app.loadState();
+                app.applyTheme();
+                app.renderHistory();
+                
+                // Markdown Config
+                marked.setOptions({
+                    highlight: function(code, lang) {
+                        const language = highlight.getLanguage(lang) ? lang : 'plaintext';
+                        return highlight.highlight(code, { language }).value;
+                    },
+                    langPrefix: 'hljs language-',
+                    breaks: true
+                });
+
+                // Init UI
+                if (STATE.chats.length === 0) app.createNewChat();
+                else app.loadChat(STATE.chats[0].id);
+
+                // Populate Settings
+                DOM.modals.apiKey.value = STATE.settings.apiKey;
+                DOM.modals.model.value = STATE.settings.model;
+                DOM.modals.system.value = STATE.settings.systemPrompt;
+                DOM.modelDisplay.textContent = `Model: ${STATE.settings.model.split('/').pop()}`;
+
+                // Hide Loader
+                setTimeout(() => DOM.loading.style.opacity = '0', 500);
+                setTimeout(() => DOM.loading.style.display = 'none', 1000);
+            },
+
+            // State Management
+            saveState: () => {
+                localStorage.setItem('gemini_clone_chats', JSON.stringify(STATE.chats));
+                localStorage.setItem('gemini_clone_settings', JSON.stringify(STATE.settings));
+                localStorage.setItem('gemini_clone_current', STATE.currentChatId);
+            },
+
+            loadState: () => {
+                const savedChats = localStorage.getItem('gemini_clone_chats');
+                const savedSettings = localStorage.getItem('gemini_clone_settings');
+                const savedCurrent = localStorage.getItem('gemini_clone_current');
+
+                if (savedChats) STATE.chats = JSON.parse(savedChats);
+                if (savedSettings) STATE.settings = { ...STATE.settings, ...JSON.parse(savedSettings) };
+                if (savedCurrent) STATE.currentChatId = savedCurrent;
+            },
+
+            // Theme
+            applyTheme: () => {
+                if (STATE.settings.theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            },
+            
+            toggleTheme: () => {
+                STATE.settings.theme = STATE.settings.theme === 'dark' ? 'light' : 'dark';
+                app.applyTheme();
+                app.saveState();
+            },
+
+            // Chat Management
+            createNewChat: () => {
+                const newChat = {
+                    id: UTILS.id(),
+                    title: 'New Chat',
+                    messages: [],
+                    timestamp: Date.now()
+                };
+                STATE.chats.unshift(newChat);
+                app.loadChat(newChat.id);
+                app.saveState();
+                if(window.innerWidth < 1024) app.toggleSidebar(); // Close sidebar on mobile
+            },
+
+            loadChat: (id) => {
+                STATE.currentChatId = id;
+                const chat = STATE.chats.find(c => c.id === id);
+                if (!chat) return;
+
+                app.renderHistory();
+                app.renderMessages(chat.messages);
+                app.saveState();
+            },
+
+            deleteChat: (e, id) => {
+                e.stopPropagation();
+                if(!confirm("Delete this chat?")) return;
+                STATE.chats = STATE.chats.filter(c => c.id !== id);
+                if (STATE.chats.length === 0) app.createNewChat();
+                else app.loadChat(STATE.chats[0].id);
+                app.saveState();
+            },
+
+            updateChatTitle: (id, firstMessage) => {
+                const chat = STATE.chats.find(c => c.id === id);
+                if(chat && chat.title === 'New Chat') {
+                    chat.title = firstMessage.slice(0, 30) + (firstMessage.length > 30 ? '...' : '');
+                    app.renderHistory();
+                    app.saveState();
+                }
+            },
+
+            // Rendering
+            renderHistory: () => {
+                DOM.historyList.innerHTML = STATE.chats.map(chat => `
+                    <div onclick="app.loadChat('${chat.id}')" 
+                         class="group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${chat.id === STATE.currentChatId ? 'bg-blue-100 dark:bg-gray-800' : 'hover:bg-gray-200 dark:hover:bg-gray-800'}">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${UTILS.escapeHtml(chat.title)}</span>
+                        </div>
+                        <button onclick="app.deleteChat(event, '${chat.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-gray-400 transition-opacity">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `).join('');
+            },
+
+            renderMessages: (messages) => {
+                DOM.messages.innerHTML = '';
+                if (messages.length === 0) {
+                    DOM.welcome.style.display = 'flex';
+                } else {
+                    DOM.welcome.style.display = 'none';
+                    messages.forEach(msg => app.appendMessageToDOM(msg.role, msg.content));
+                }
+                app.scrollToBottom();
+            },
+
+            appendMessageToDOM: (role, content) => {
+                const div = document.createElement('div');
+                div.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm md:text-base shadow-sm ${
+                    role === 'user' 
+                    ? 'bg-brand text-white rounded-br-none' 
+                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-none border border-gray-100 dark:border-gray-700'
+                }`;
+
+                if (role === 'user') {
+                    bubble.textContent = content; // User text is plain
+                } else {
+                    bubble.innerHTML = marked.parse(content); // AI text is markdown
+                    // Handle links safely
+                    bubble.querySelectorAll('a').forEach(a => {
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        a.className = 'text-blue-500 underline hover:text-blue-400';
+                    });
+                }
+
+                div.appendChild(bubble);
+                DOM.messages.appendChild(div);
+                return bubble; // Return for streaming updates
+            },
+
+            // Inputs & Logic
+            handleEnter: (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    app.sendMessage();
+                }
+            },
+
+            autoResize: (el) => {
+                el.style.height = 'auto';
+                el.style.height = el.scrollHeight + 'px';
+            },
+
+            sendMessage: async () => {
+                const text = DOM.input.value.trim();
+                if (!text || STATE.isGenerating) return;
+
+                if (!STATE.settings.apiKey) {
+                    alert("Please enter your OpenRouter API Key in Settings.");
+                    app.toggleSettings();
+                    return;
+                }
+
+                // Reset UI
+                DOM.input.value = '';
+                DOM.input.style.height = 'auto';
+                DOM.welcome.style.display = 'none';
+                STATE.isGenerating = true;
+                DOM.sendBtn.disabled = true;
+
+                // User Msg
+                const chat = STATE.chats.find(c => c.id === STATE.currentChatId);
+                chat.messages.push({ role: 'user', content: text });
+                app.appendMessageToDOM('user', text);
+                app.updateChatTitle(STATE.currentChatId, text);
+                app.scrollToBottom();
+
+                // Placeholder for AI Msg
+                const aiMsgContent = "";
+                const aiBubble = app.appendMessageToDOM('assistant', "Thinking...");
+                
+                // Prepare History (System Prompt + Recent messages)
+                const payloadMessages = [
+                    { role: "system", content: STATE.settings.systemPrompt },
+                    ...chat.messages.map(m => ({ role: m.role, content: m.content }))
+                ];
+
+                // STREAMING REQUEST
+                try {
+                    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${STATE.settings.apiKey}`,
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": window.location.href,
+                            "X-Title": "Universal AI Chat"
+                        },
+                        body: JSON.stringify({
+                            model: STATE.settings.model,
+                            messages: payloadMessages,
+                            stream: true
+                        })
+                    });
+
+                    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder("utf-8");
+                    let accumulatedText = "";
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split("\n");
+
+                        for (const line of lines) {
+                            if (line.startsWith("data: ") && line !== "data: [DONE]") {
+                                try {
+                                    const json = JSON.parse(line.substring(6));
+                                    const content = json.choices[0]?.delta?.content || "";
+                                    accumulatedText += content;
+                                    
+                                    // Update DOM in real-time
+                                    aiBubble.innerHTML = marked.parse(accumulatedText);
+                                    // Apply highlighting on new content chunks (simple approach)
+                                    aiBubble.querySelectorAll('pre code').forEach((block) => {
+                                        hljs.highlightElement(block);
+                                    });
+                                    app.scrollToBottom();
+                                } catch (e) {
+                                    console.warn("Parse error", e);
+                                }
+                            }
+                        }
+                    }
+
+                    // Save AI Message
+                    chat.messages.push({ role: "assistant", content: accumulatedText });
+                    app.saveState();
+
+                } catch (err) {
+                    aiBubble.innerHTML = `<span class="text-red-500">Error: ${err.message}</span>`;
+                    chat.messages.push({ role: "assistant", content: `Error: ${err.message}` });
+                    app.saveState();
+                } finally {
+                    STATE.isGenerating = false;
+                    DOM.sendBtn.disabled = false;
+                }
+            },
+
+            scrollToBottom: () => {
+                DOM.messages.scrollTop = DOM.messages.scrollHeight;
+            },
+
+            // Sidebar & Modals
+            toggleSidebar: () => {
+                DOM.sidebar.classList.toggle('-translate-x-full');
+                DOM.backdrop.classList.toggle('hidden');
+            },
+
+            toggleSettings: () => {
+                DOM.modals.settings.classList.toggle('hidden');
+            },
+
+            saveSettings: () => {
+                STATE.settings.apiKey = DOM.modals.apiKey.value.trim();
+                STATE.settings.model = DOM.modals.model.value.trim() || 'deepseek/deepseek-r1:free';
+                STATE.settings.systemPrompt = DOM.modals.system.value.trim();
+                
+                DOM.modelDisplay.textContent = `Model: ${STATE.settings.model.split('/').pop()}`;
+                
+                app.saveState();
+                app.toggleSettings();
+                alert("Settings saved!");
+            }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', app.init);
+
+    </script>
+</body>
+</html>
